@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+/* Warm editorial palette carried over from the mobile app (constants/theme.ts). */
+@theme {
+  --color-bg: #f5f3ef;
+  --color-surface: #ffffff;
+  --color-ink: #1a1612;
+  --color-ink-soft: #4a443c;
+  --color-muted: #8c857b;
+  --color-line: #e8e4de;
+  --color-line-soft: #f1eee9;
+  --color-copper: #c45c1a;
+  --color-copper-light: #fdf4ec;
+  --color-copper-dark: #9a4510;
+  --color-ok: #10b981;
+  --color-warn: #f59e0b;
+  --color-danger: #dc2626;
+  --color-info: #3b82f6;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Inputs inherit the palette everywhere instead of being restyled per-screen. */
+@layer components {
+  .field {
+    @apply w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-[15px] text-ink outline-none transition;
+  }
+  .field:focus {
+    @apply border-copper ring-2 ring-copper/15;
+  }
+  .field::placeholder {
+    color: var(--color-muted);
+  }
+  .label {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-muted;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+  /* Tailwind v4 can't @apply a class defined in this same layer, so each button
+     variant spells out the shared base rather than composing from `.btn`. */
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-copper text-white hover:bg-copper-dark;
+  }
+  .btn-ghost {
+    @apply border border-line bg-surface text-ink-soft hover:bg-line-soft;
+  }
+  .btn-danger {
+    @apply bg-danger text-white hover:brightness-95;
+  }
+}
+
+/* Scrollbars that don't fight the warm palette. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8d2c8 transparent;
+}
