@@ -75,6 +75,7 @@ export default function AttendancePage() {
 
   const [fromDate, setFromDate] = useState(() => toDateKey(new Date()));
   const [toDate, setToDate] = useState(() => toDateKey(new Date()));
+  const [activePreset, setActivePreset] = useState<'1d' | '1w' | '1m' | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [rows, setRows] = useState<AdminAssignmentRow[]>([]);
@@ -87,13 +88,16 @@ export default function AttendancePage() {
 
   // Keep the range non-inverted without a separate validation error — picking
   // a "from" after the current "to" (or vice versa) just drags the other end.
+  // A manual edit means the range no longer matches any preset, so clear the highlight.
   function onFromChange(v: string) {
     setFromDate(v);
     if (v > toDate) setToDate(v);
+    setActivePreset(null);
   }
   function onToChange(v: string) {
     setToDate(v);
     if (v < fromDate) setFromDate(v);
+    setActivePreset(null);
   }
 
   function applyPreset(preset: '1d' | '1w' | '1m') {
@@ -101,6 +105,7 @@ export default function AttendancePage() {
     const start = preset === '1d' ? today : preset === '1w' ? subDays(today, 6) : subMonths(today, 1);
     setFromDate(toDateKey(start));
     setToDate(toDateKey(today));
+    setActivePreset(preset);
   }
 
   function resetFilters() {
@@ -108,6 +113,7 @@ export default function AttendancePage() {
     setFromDate(today);
     setToDate(today);
     setUserId('');
+    setActivePreset(null);
   }
 
   const load = useCallback(async () => {
@@ -197,7 +203,11 @@ export default function AttendancePage() {
                 <button
                   key={preset}
                   onClick={() => applyPreset(preset)}
-                  className="rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-ink-soft transition hover:bg-line-soft hover:text-ink"
+                  className={`rounded-lg px-2.5 py-1.5 text-[13px] font-semibold transition ${
+                    activePreset === preset
+                      ? 'bg-copper text-white'
+                      : 'text-ink-soft hover:bg-line-soft hover:text-ink'
+                  }`}
                 >
                   {preset.toUpperCase()}
                 </button>

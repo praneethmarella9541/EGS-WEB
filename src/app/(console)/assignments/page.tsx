@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeftRight,
+  FilePlus2,
+  Pencil,
   Plus,
   RefreshCw,
   Star,
@@ -11,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
-import { FormPickerModal } from '@/components/FormPickerModal';
+import { MultiFormPickerModal } from '@/components/MultiFormPickerModal';
 import {
   Avatar,
   CenteredSpinner,
@@ -36,8 +37,11 @@ import { getFieldForm } from '@/lib/settings';
 import { notifyAssignmentCreated } from '@/lib/notify';
 import type { Assignment } from '@/lib/types';
 
-type AreaRow = { areaLabel: string; form: { id: string; title: string; url: string } | null };
-const emptyAreaRow = (): AreaRow => ({ areaLabel: '', form: null });
+type AreaFormSel = { id: string; title: string; url: string };
+// forms === null → not customized (defaults to the starred field form at read
+// time); an array (even empty) → the admin explicitly picked this exact set.
+type AreaRow = { areaLabel: string; forms: AreaFormSel[] | null };
+const emptyAreaRow = (): AreaRow => ({ areaLabel: '', forms: null });
 
 export default function AssignmentsPage() {
   const toast = useToast();
@@ -50,8 +54,8 @@ export default function AssignmentsPage() {
   const [formUser, setFormUser] = useState<AssignableUser | null>(null);
   const [areas, setAreas] = useState<AreaRow[]>([emptyAreaRow()]);
   const [saving, setSaving] = useState(false);
-  const [pickerRow, setPickerRow] = useState<number | null>(null);
-  const [resolvingRow, setResolvingRow] = useState<number | null>(null);
+  const [multiPickerRow, setMultiPickerRow] = useState<number | null>(null);
+  const [resolvingFormsRow, setResolvingFormsRow] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Assignment | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -121,19 +125,24 @@ export default function AssignmentsPage() {
     setAreas([emptyAreaRow()]);
   }
 
-  async function pickAreaForm(i: number, form: FormListItem) {
-    setResolvingRow(i);
+  /** Resolve each checked form's public responder URL (cache first, then a per-form call) and store the set on the row. */
+  async function confirmAreaForms(i: number, selected: FormListItem[]) {
+    setResolvingFormsRow(i);
     try {
-      const { uri } = await formsApi.responderUri(form.id);
-      setAreas((prev) =>
-        prev.map((a, idx) =>
-          idx === i ? { ...a, form: { id: form.id, title: form.title, url: uri } } : a
-        )
+      const cache = await formsApi.cachedResponderUris();
+      const resolved = await Promise.all(
+        selected.map(async (f): Promise<AreaFormSel> => {
+          const cached = cache[f.id];
+          if (cached) return { id: f.id, title: f.title, url: cached };
+          const { uri } = await formsApi.responderUri(f.id);
+          return { id: f.id, title: f.title, url: uri };
+        })
       );
+      setAreas((prev) => prev.map((a, idx) => (idx === i ? { ...a, forms: resolved } : a)));
     } catch (e) {
-      toast('error', 'Could not load that form’s link', errMsg(e, 'Please try again.'));
+      toast('error', 'Could not load form links', errMsg(e, 'Please try again.'));
     } finally {
-      setResolvingRow(null);
+      setResolvingFormsRow(null);
     }
   }
 
@@ -146,7 +155,7 @@ export default function AssignmentsPage() {
       const { created, failed } = await createAssignments({
         userId: formUser.id,
         dateKey,
-        items: items.map((a) => ({ areaLabel: a.areaLabel, form: a.form })),
+        items: items.map((a) => ({ areaLabel: a.areaLabel, forms: a.forms })),
       });
       // Best-effort push to the assigned user, naming the area(s) that saved.
       const failedLabels = new Set(failed.map((f) => f.areaLabel));
@@ -250,8 +259,12 @@ export default function AssignmentsPage() {
                           <span className="text-[13px] font-bold text-muted">{i + 1}.</span>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-ink">{a.area_label}</p>
-                            {a.form_id ? (
-                              <p className="mt-0.5 text-xs text-muted">Custom form for this area</p>
+                            {a.forms_customized ? (
+                              <p className="mt-0.5 truncate text-xs text-muted">
+                                {a.forms && a.forms.length > 0
+                                  ? `Forms: ${a.forms.map((f) => f.form_title).join(', ')}`
+                                  : 'No form attached'}
+                              </p>
                             ) : null}
                           </div>
                           <button
@@ -309,32 +322,35 @@ export default function AssignmentsPage() {
                 The user picks their exact place(s) within this area when they check in.
               </p>
 
-              {resolvingRow === i ? (
+              {resolvingFormsRow === i ? (
                 <div className="mt-3 flex items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2.5 text-[13px] font-semibold text-copper">
                   <Spinner className="size-4" />
-                  Loading form…
+                  Loading form links…
                 </div>
-              ) : area.form ? (
-                <div className="mt-3 flex items-center gap-2 rounded-lg border border-copper bg-copper-light px-3 py-2.5">
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
-                    {area.form.title}
-                  </span>
+              ) : area.forms !== null ? (
+                <>
+                  {area.forms.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {area.forms.map((f) => (
+                        <span
+                          key={f.id}
+                          className="flex max-w-full items-center gap-1.5 truncate rounded-lg border border-copper bg-copper-light px-2.5 py-1.5 text-[13px] font-medium text-ink"
+                        >
+                          {f.title}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-muted">No forms will be assigned for this area.</p>
+                  )}
                   <button
-                    onClick={() => setPickerRow(i)}
-                    className="text-xs font-bold text-copper hover:underline"
+                    onClick={() => setMultiPickerRow(i)}
+                    className="mt-2 flex w-full items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2.5 text-[13px] font-semibold text-copper transition hover:bg-copper-light"
                   >
-                    Change
+                    <Pencil className="size-4" />
+                    Edit forms for this area
                   </button>
-                  <button
-                    onClick={() =>
-                      setAreas((prev) => prev.map((a, idx) => (idx === i ? { ...a, form: null } : a)))
-                    }
-                    className="text-muted transition hover:text-danger"
-                    aria-label="Clear form override"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </div>
+                </>
               ) : (
                 <>
                   {defaultForm ? (
@@ -349,11 +365,11 @@ export default function AssignmentsPage() {
                     </div>
                   ) : null}
                   <button
-                    onClick={() => setPickerRow(i)}
+                    onClick={() => setMultiPickerRow(i)}
                     className="mt-2 flex w-full items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2.5 text-[13px] font-semibold text-copper transition hover:bg-copper-light"
                   >
-                    <ArrowLeftRight className="size-4" />
-                    Use a different form for this area
+                    <FilePlus2 className="size-4" />
+                    Add more forms for this area
                   </button>
                 </>
               )}
@@ -380,11 +396,21 @@ export default function AssignmentsPage() {
         </div>
       </Modal>
 
-      <FormPickerModal
-        open={pickerRow !== null}
-        onClose={() => setPickerRow(null)}
-        onPick={(form) => {
-          if (pickerRow !== null) void pickAreaForm(pickerRow, form);
+      <MultiFormPickerModal
+        open={multiPickerRow !== null}
+        onClose={() => setMultiPickerRow(null)}
+        initialSelectedIds={
+          multiPickerRow !== null && areas[multiPickerRow]
+            ? (areas[multiPickerRow].forms
+                ? areas[multiPickerRow].forms!.map((f) => f.id)
+                : defaultForm
+                  ? [defaultForm.id]
+                  : [])
+            : []
+        }
+        defaultFormId={defaultForm?.id ?? null}
+        onConfirm={(selected) => {
+          if (multiPickerRow !== null) void confirmAreaForms(multiPickerRow, selected);
         }}
       />
 
