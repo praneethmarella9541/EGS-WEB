@@ -9,10 +9,10 @@ import { downloadPhoto } from '@/lib/visits';
 import { Spinner, errMsg, useToast } from '@/components/ui';
 
 export function PhotoLightbox({
-  urls,
+  photos,
   onClose,
 }: {
-  urls: string[] | null;
+  photos: { path: string; url: string }[] | null;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -21,26 +21,26 @@ export function PhotoLightbox({
 
   useEffect(() => {
     setIndex(0);
-  }, [urls]);
+  }, [photos]);
 
   useEffect(() => {
-    if (!urls) return;
+    if (!photos) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight') setIndex((i) => Math.min(i + 1, urls.length - 1));
+      if (e.key === 'ArrowRight') setIndex((i) => Math.min(i + 1, photos.length - 1));
       if (e.key === 'ArrowLeft') setIndex((i) => Math.max(i - 1, 0));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [urls, onClose]);
+  }, [photos, onClose]);
 
-  if (!urls || urls.length === 0) return null;
+  if (!photos || photos.length === 0) return null;
 
   async function save() {
-    if (!urls) return;
+    if (!photos) return;
     setDownloading(true);
     try {
-      await downloadPhoto(urls[index], `visit-photo-${Date.now()}.jpg`);
+      await downloadPhoto(photos[index].path, `visit-photo-${Date.now()}.jpg`);
     } catch (e) {
       toast('error', 'Could not save photo', errMsg(e, 'Please try again.'));
     } finally {
@@ -57,7 +57,7 @@ export function PhotoLightbox({
     >
       <div className="flex items-center justify-between p-4">
         <span className="text-sm font-medium text-white/70">
-          {index + 1} / {urls.length}
+          {index + 1} / {photos.length}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -79,7 +79,7 @@ export function PhotoLightbox({
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center gap-2 px-4 pb-8">
-        {urls.length > 1 ? (
+        {photos.length > 1 ? (
           <button
             onClick={() => setIndex((i) => Math.max(i - 1, 0))}
             disabled={index === 0}
@@ -90,14 +90,14 @@ export function PhotoLightbox({
           </button>
         ) : null}
         <img
-          src={urls[index]}
+          src={photos[index].url}
           alt={`Visit photo ${index + 1}`}
           className="max-h-full min-h-0 max-w-full rounded-lg object-contain"
         />
-        {urls.length > 1 ? (
+        {photos.length > 1 ? (
           <button
-            onClick={() => setIndex((i) => Math.min(i + 1, urls.length - 1))}
-            disabled={index === urls.length - 1}
+            onClick={() => setIndex((i) => Math.min(i + 1, photos.length - 1))}
+            disabled={index === photos.length - 1}
             className="rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20 disabled:opacity-25"
             aria-label="Next photo"
           >

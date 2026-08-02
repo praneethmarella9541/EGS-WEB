@@ -85,51 +85,22 @@ export async function getPhotoUrl(photoPath: string | null | undefined): Promise
   return url ?? null;
 }
 
-function saveBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
 /**
  * Save a visit photo to the admin's machine.
  *
- * The signed URL points at storage.googleapis.com, so a plain `download`
- * attribute would be ignored and the browser would navigate to the image
- * instead. Fetching the bytes first fixes that — but a cross-origin `fetch`
- * needs the GCS bucket to allow this origin in its CORS config, which merely
- * *displaying* the image in an <img> never does.
- *
- * So: try the clean download, and if CORS (or the network) refuses, fall back
- * to opening the photo in a new tab, where the admin can still save it. The
- * console stays usable whether or not the bucket CORS entry exists; adding this
- * origin to it (docs/GCS_SETUP.md) upgrades the fallback to a real download.
+ * A plain `<a download>` on the storage.googleapis.com view URL is ignored —
+ * the `download` attribute only applies to same-origin links — and fetching the
+ * bytes ourselves would need the GCS bucket's CORS config to allow this origin,
+ * which merely *displaying* the photo in an <img> never requires. Instead, ask
+ * `gcs-sign` for a URL with `response-content-disposition: attachment` baked
+ * into the signature: GCS itself sends that header back, so the browser
+ * downloads on plain navigation — no fetch, no CORS needed.
  */
-export async function downloadPhoto(photoUrl: string, filename: string): Promise<void> {
-  let res: Response;
-  try {
-    res = await fetch(photoUrl);
-  } catch {
-    // Almost always CORS: the bucket has no rule for this origin.
-    const opened = window.open(photoUrl, '_blank', 'noopener');
-    if (opened) return;
-    throw new Error(
-      'Your browser blocked the download. Add this site to the storage bucket’s CORS ' +
-        'allowed origins (see docs/GCS_SETUP.md), or allow pop-ups and try again.'
-    );
-  }
-
-  if (!res.ok) {
-    throw new Error(
-      res.status === 404
-        ? 'This photo is not in cloud storage. Photos logged before the move to Google Cloud Storage were not carried over.'
-        : `Could not fetch the photo (HTTP ${res.status}). Reopen the visit — view links expire after an hour.`
-    );
-  }
-  saveBlob(await res.blob(), filename);
+export async function downloadPhoto(photoPath: string, filename: string): Promise<void> {
+  const { url } = await callEdge<{ url: string }>('gcs-sign', {
+    action: 'download',
+    path: photoPath,
+    filename,
+  });
+  window.location.href = url;
 }

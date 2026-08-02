@@ -69,7 +69,7 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [gallery, setGallery] = useState<string[] | null>(null);
+  const [gallery, setGallery] = useState<{ path: string; url: string }[] | null>(null);
 
   const todayKey = toDateKey(new Date());
 
@@ -115,8 +115,11 @@ export default function AttendancePage() {
   async function viewPhotos(visit: LocationVisit) {
     if (visit.photos.length === 0) return;
     try {
-      const urls = await getPhotoUrls(visit.photos.map((p) => p.photo_path));
-      const usable = urls.filter((u): u is string => !!u);
+      const paths = visit.photos.map((p) => p.photo_path);
+      const urls = await getPhotoUrls(paths);
+      const usable = paths
+        .map((path, i) => ({ path, url: urls[i] }))
+        .filter((p): p is { path: string; url: string } => !!p.url);
       // Every path came back unsigned — don't open an empty lightbox and leave
       // the admin wondering whether the click registered.
       if (usable.length === 0) {
@@ -355,7 +358,7 @@ export default function AttendancePage() {
         )}
       </div>
 
-      <PhotoLightbox urls={gallery} onClose={() => setGallery(null)} />
+      <PhotoLightbox photos={gallery} onClose={() => setGallery(null)} />
     </>
   );
 }
