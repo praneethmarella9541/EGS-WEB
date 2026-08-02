@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { PhotoLightbox } from '@/components/PhotoLightbox';
-import { Avatar, CenteredSpinner, EmptyState, errMsg, useToast } from '@/components/ui';
+import { Avatar, CenteredSpinner, DatePicker, EmptyState, Select, errMsg, useToast } from '@/components/ui';
 import { listAssignableUsers, toDateKey, type AssignableUser } from '@/lib/assignments';
 import { getPhotoUrls, listAdminAssignmentsForDate, listAdminAssignmentsForUser } from '@/lib/visits';
 import type { AdminAssignmentRow, AssignmentWithVisits, LocationVisit } from '@/lib/types';
@@ -210,27 +210,16 @@ export default function AttendancePage() {
               ))}
             </div>
             {mode === 'date' ? (
-              <input
-                type="date"
-                className="field w-auto py-2"
-                value={dateKey}
-                onChange={(e) => e.target.value && setDateKey(e.target.value)}
-                aria-label="Attendance date"
-              />
+              <DatePicker value={dateKey} onChange={setDateKey} ariaLabel="Attendance date" />
             ) : (
-              <select
-                className="field w-auto py-2"
+              <Select
                 value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                aria-label="Choose a user"
-              >
-                <option value="">Choose a user…</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.display_name || u.email}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedUserId}
+                options={users.map((u) => ({ value: u.id, label: u.display_name || u.email }))}
+                placeholder="Choose a user…"
+                ariaLabel="Choose a user"
+                className="w-56"
+              />
             )}
             <button className="btn-ghost" onClick={() => void load(true)} disabled={refreshing}>
               <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />

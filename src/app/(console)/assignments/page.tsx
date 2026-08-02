@@ -16,6 +16,7 @@ import {
   Avatar,
   CenteredSpinner,
   ConfirmDialog,
+  DatePicker,
   EmptyState,
   Modal,
   Spinner,
@@ -198,13 +199,7 @@ export default function AssignmentsPage() {
         subtitle={prettyDate}
         actions={
           <>
-            <input
-              type="date"
-              className="field w-auto py-2"
-              value={dateKey}
-              onChange={(e) => e.target.value && setDateKey(e.target.value)}
-              aria-label="Assignment date"
-            />
+            <DatePicker value={dateKey} onChange={setDateKey} ariaLabel="Assignment date" />
             <button className="btn-ghost" onClick={() => void load(true)} disabled={refreshing}>
               <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
