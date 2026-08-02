@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Eye, EyeOff, KeyRound, RefreshCw, Trash2, UserPlus, Users } from 'lucide-react';
+import { Ban, Eye, EyeOff, KeyRound, RefreshCw, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import {
   Avatar,
@@ -31,8 +31,9 @@ export default function TeamPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [mobile, setMobile] = useState('');
 
-  const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [blockTarget, setBlockTarget] = useState<TeamMember | null>(null);
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -112,18 +113,31 @@ export default function TeamPage() {
     }
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeleteBusy(true);
+  async function confirmBlock() {
+    if (!blockTarget) return;
+    setBlockBusy(true);
     try {
-      await adminUsers.remove(deleteTarget.id);
-      toast('success', 'User deleted', deleteTarget.email);
-      setDeleteTarget(null);
+      await adminUsers.block(blockTarget.id);
+      toast('success', 'Access blocked', blockTarget.email);
+      setBlockTarget(null);
       await load();
     } catch (e) {
-      toast('error', 'Delete failed', errMsg(e, 'Please try again.'));
+      toast('error', 'Could not block user', errMsg(e, 'Please try again.'));
     } finally {
-      setDeleteBusy(false);
+      setBlockBusy(false);
+    }
+  }
+
+  async function unblock(m: TeamMember) {
+    setUnblockingId(m.id);
+    try {
+      await adminUsers.unblock(m.id);
+      toast('success', 'Access restored', m.email);
+      await load();
+    } catch (e) {
+      toast('error', 'Could not unblock user', errMsg(e, 'Please try again.'));
+    } finally {
+      setUnblockingId(null);
     }
   }
 
@@ -160,7 +174,10 @@ export default function TeamPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {members.map((m) => (
-              <div key={m.id} className="card flex items-center gap-3 p-4">
+              <div
+                key={m.id}
+                className={`card flex items-center gap-3 p-4 ${m.blocked ? 'opacity-60' : ''}`}
+              >
                 <Avatar name={m.display_name || m.email} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-ink">
@@ -169,6 +186,12 @@ export default function TeamPage() {
                   <p className="truncate text-[13px] text-ink-soft">{m.email}</p>
                   {m.mobile_phone ? (
                     <p className="truncate text-xs text-muted">{m.mobile_phone}</p>
+                  ) : null}
+                  {m.blocked ? (
+                    <p className="mt-1 inline-flex items-center gap-1 truncate text-xs font-bold text-danger">
+                      <Ban className="size-3 shrink-0" />
+                      Access blocked
+                    </p>
                   ) : null}
                   {m.restricted_features.length > 0 ? (
                     <p className="mt-1 truncate text-xs font-medium text-warn">
@@ -185,14 +208,30 @@ export default function TeamPage() {
                   >
                     <KeyRound className="size-4.5" />
                   </button>
-                  <button
-                    onClick={() => setDeleteTarget(m)}
-                    className="rounded-lg p-2 text-danger transition hover:bg-danger/10"
-                    title="Delete user"
-                    aria-label={`Delete ${m.email}`}
-                  >
-                    <Trash2 className="size-4.5" />
-                  </button>
+                  {m.blocked ? (
+                    <button
+                      onClick={() => void unblock(m)}
+                      disabled={unblockingId === m.id}
+                      className="rounded-lg p-2 text-ok transition hover:bg-ok/10 disabled:opacity-50"
+                      title="Restore access"
+                      aria-label={`Restore access for ${m.email}`}
+                    >
+                      {unblockingId === m.id ? (
+                        <Spinner className="size-4.5" />
+                      ) : (
+                        <ShieldCheck className="size-4.5" />
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setBlockTarget(m)}
+                      className="rounded-lg p-2 text-danger transition hover:bg-danger/10"
+                      title="Block access"
+                      aria-label={`Block ${m.email}`}
+                    >
+                      <Ban className="size-4.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -297,14 +336,14 @@ export default function TeamPage() {
       </Modal>
 
       <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete user"
-        message={deleteTarget?.display_name || deleteTarget?.email}
-        warning="This permanently deletes this user and ALL of their data — profile, assignments, attendance and visit records, and every photo they uploaded. This cannot be undone."
-        confirmLabel="Delete user"
-        busy={deleteBusy}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => void confirmDelete()}
+        open={!!blockTarget}
+        title="Block access"
+        message={blockTarget?.display_name || blockTarget?.email}
+        warning="They won't be able to sign in to the mobile app with this account anymore. All of their data — assignments, attendance and photos — stays exactly as it is and remains visible here. You can restore access anytime."
+        confirmLabel="Block access"
+        busy={blockBusy}
+        onCancel={() => setBlockTarget(null)}
+        onConfirm={() => void confirmBlock()}
       />
     </>
   );
