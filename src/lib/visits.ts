@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
+import { callEdge } from './edge';
 import type { AdminAssignmentRow, AssignmentWithVisits, LocationVisit } from './types';
-
-const BUCKET = 'visit-photos';
 
 function sortVisits(visits: LocationVisit[]): LocationVisit[] {
   return [...visits].sort(
@@ -56,38 +55,37 @@ export async function listAdminAssignmentsForUser(
 }
 
 /**
- * Short-lived signed URLs to view uploaded visit photos. Batched, because a
- * visit usually has several and each one would otherwise be its own round trip.
- * Storage RLS (`visit photos storage read own or admin`) lets an admin sign any
- * path in the bucket, not just their own. Entries that fail to sign (e.g. the
- * object was deleted) come back as null.
+ * Short-lived signed URLs to view uploaded visit photos.
+ *
+ * Photos live in a **private Google Cloud Storage bucket**, not Supabase
+ * Storage — the Supabase `visit-photos` bucket was deleted at cutover (see
+ * docs/GCS_SETUP.md), so signing against it returns nothing and every photo
+ * renders blank. GCS can't evaluate a Supabase JWT, so the `gcs-sign` Edge
+ * Function holds the service-account key and issues V4 signed GET URLs after
+ * checking the caller owns the photo or is an admin.
+ *
+ * Batched, because a visit usually has several and each one would otherwise be
+ * its own round trip. Entries the caller isn't allowed to see come back as null.
  */
 export async function getPhotoUrls(photoPaths: string[]): Promise<(string | null)[]> {
   const wanted = photoPaths.filter(Boolean);
   if (wanted.length === 0) return photoPaths.map(() => null);
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(wanted, 3600);
-  if (error) throw error;
-  const byPath = new Map((data ?? []).map((d) => [d.path, d.error ? null : d.signedUrl]));
+  const { urls } = await callEdge<{ urls: (string | null)[] }>('gcs-sign', {
+    action: 'read',
+    paths: wanted,
+  });
+  const byPath = new Map(wanted.map((p, i) => [p, urls[i] ?? null]));
   return photoPaths.map((p) => (p ? byPath.get(p) ?? null : null));
 }
 
-/**
- * Save a visit photo to the admin's machine.
- *
- * The signed URL is cross-origin, so a plain `download` attribute would be
- * ignored and the browser would navigate to the image instead. Fetch the bytes
- * first and hand the anchor a same-origin blob: URL.
- */
-export async function downloadPhoto(photoUrl: string, filename: string): Promise<void> {
-  const res = await fetch(photoUrl);
-  if (!res.ok) {
-    throw new Error(
-      res.status === 404
-        ? 'This photo could not be found in storage — it may have been deleted.'
-        : `Could not fetch the photo (HTTP ${res.status}). Reopen the visit — view links expire after an hour.`
-    );
-  }
-  const blob = await res.blob();
+/** Short-lived signed URL to view one uploaded visit photo. */
+export async function getPhotoUrl(photoPath: string | null | undefined): Promise<string | null> {
+  if (!photoPath) return null;
+  const [url] = await getPhotoUrls([photoPath]);
+  return url ?? null;
+}
+
+function saveBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -96,4 +94,42 @@ export async function downloadPhoto(photoUrl: string, filename: string): Promise
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Save a visit photo to the admin's machine.
+ *
+ * The signed URL points at storage.googleapis.com, so a plain `download`
+ * attribute would be ignored and the browser would navigate to the image
+ * instead. Fetching the bytes first fixes that — but a cross-origin `fetch`
+ * needs the GCS bucket to allow this origin in its CORS config, which merely
+ * *displaying* the image in an <img> never does.
+ *
+ * So: try the clean download, and if CORS (or the network) refuses, fall back
+ * to opening the photo in a new tab, where the admin can still save it. The
+ * console stays usable whether or not the bucket CORS entry exists; adding this
+ * origin to it (docs/GCS_SETUP.md) upgrades the fallback to a real download.
+ */
+export async function downloadPhoto(photoUrl: string, filename: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(photoUrl);
+  } catch {
+    // Almost always CORS: the bucket has no rule for this origin.
+    const opened = window.open(photoUrl, '_blank', 'noopener');
+    if (opened) return;
+    throw new Error(
+      'Your browser blocked the download. Add this site to the storage bucket’s CORS ' +
+        'allowed origins (see docs/GCS_SETUP.md), or allow pop-ups and try again.'
+    );
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      res.status === 404
+        ? 'This photo is not in cloud storage. Photos logged before the move to Google Cloud Storage were not carried over.'
+        : `Could not fetch the photo (HTTP ${res.status}). Reopen the visit — view links expire after an hour.`
+    );
+  }
+  saveBlob(await res.blob(), filename);
 }

@@ -147,8 +147,10 @@ export default function AssignmentsPage() {
         dateKey,
         items: items.map((a) => ({ areaLabel: a.areaLabel, form: a.form })),
       });
-      // Best-effort push to the assigned user (no-op if they have no device token).
-      if (created > 0) void notifyAssignmentCreated(formUser.id, created, dateKey);
+      // Best-effort push to the assigned user, naming the area(s) that saved.
+      const failedLabels = new Set(failed.map((f) => f.areaLabel));
+      const okLabels = items.map((a) => a.areaLabel).filter((l) => !failedLabels.has(l));
+      if (okLabels.length) void notifyAssignmentCreated(formUser.id, okLabels, dateKey);
       setFormUser(null);
       await load();
       if (failed.length) {

@@ -141,6 +141,11 @@ public; the service-role key is never used here.
 - Response summaries are single-hue horizontal bars rather than the multi-colour
   pie the mobile app draws — they stay readable past a handful of options and
   don't depend on colour alone to tell categories apart.
+- **Visit photos come from GCS, not Supabase Storage.** The Supabase
+  `visit-photos` bucket was deleted at cutover, so anything signing against it
+  returns blanks. `getPhotoUrls` goes through the `gcs-sign` Edge Function, same
+  as the mobile app. Viewing needs no bucket CORS rule; the download button does
+  (it falls back to opening the photo in a new tab without one).
 - There is no email/password sign-in here at all. That path still exists in the
   mobile app, which is where field users belong.
 - Editing a team member is password-only, matching the mobile app's edit form.

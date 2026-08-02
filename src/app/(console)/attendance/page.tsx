@@ -116,7 +116,18 @@ export default function AttendancePage() {
     if (visit.photos.length === 0) return;
     try {
       const urls = await getPhotoUrls(visit.photos.map((p) => p.photo_path));
-      setGallery(urls.filter((u): u is string => !!u));
+      const usable = urls.filter((u): u is string => !!u);
+      // Every path came back unsigned — don't open an empty lightbox and leave
+      // the admin wondering whether the click registered.
+      if (usable.length === 0) {
+        toast(
+          'error',
+          'Photos unavailable',
+          'Storage returned no link for this visit’s photos. They may have been deleted, or predate the move to Google Cloud Storage.'
+        );
+        return;
+      }
+      setGallery(usable);
     } catch (e) {
       toast('error', 'Could not open photos', errMsg(e, 'Please try again.'));
     }
