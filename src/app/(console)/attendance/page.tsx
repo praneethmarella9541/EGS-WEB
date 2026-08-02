@@ -1,28 +1,24 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { format, subDays, subMonths } from 'date-fns';
 import {
-  CalendarDays,
   CalendarX,
   CheckCircle2,
   ChevronDown,
   Clock,
   Image as ImageIcon,
-  Map,
   MapPin,
-  RefreshCw,
-  XCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { PhotoLightbox } from '@/components/PhotoLightbox';
 import { Avatar, CenteredSpinner, DatePicker, EmptyState, Select, errMsg, useToast } from '@/components/ui';
 import { listAssignableUsers, toDateKey, type AssignableUser } from '@/lib/assignments';
-import { getPhotoUrls, listAdminAssignmentsForDate, listAdminAssignmentsForUser } from '@/lib/visits';
-import type { AdminAssignmentRow, AssignmentWithVisits, LocationVisit } from '@/lib/types';
+import { getPhotoUrls, listAdminAssignments } from '@/lib/visits';
+import type { AdminAssignmentRow, LocationVisit } from '@/lib/types';
 
-type ViewMode = 'date' | 'user';
-type Row = AdminAssignmentRow | AssignmentWithVisits;
+type Row = AdminAssignmentRow;
 
 /**
  * How much to trust a visit's place, in one line. Since the place is normally
@@ -55,42 +51,74 @@ function photoCount(row: Row): number {
   return row.visits.reduce((sum, v) => sum + v.photos.length, 0);
 }
 
+function formatDuration(minutes: number): string {
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+/**
+ * First and last visit logged under this area, and the span between them —
+ * lets an admin see how long a user was active at a location without
+ * expanding every individual visit. `row.visits` is pre-sorted ascending.
+ */
+function visitSpan(
+  row: Row
+): { first: string; last: string; minutes: number; durationLabel: string | null } | null {
+  if (row.visits.length === 0) return null;
+  const first = row.visits[0].submitted_at;
+  const last = row.visits[row.visits.length - 1].submitted_at;
+  const minutes = Math.round((new Date(last).getTime() - new Date(first).getTime()) / 60000);
+  return { first, last, minutes, durationLabel: minutes <= 0 ? null : `${formatDuration(minutes)} span` };
+}
+
 export default function AttendancePage() {
   const toast = useToast();
-  const [mode, setMode] = useState<ViewMode>('date');
 
-  const [dateKey, setDateKey] = useState(() => toDateKey(new Date()));
-  const [dateRows, setDateRows] = useState<AdminAssignmentRow[]>([]);
-
+  const [fromDate, setFromDate] = useState(() => toDateKey(new Date()));
+  const [toDate, setToDate] = useState(() => toDateKey(new Date()));
+  const [userId, setUserId] = useState<string>('');
   const [users, setUsers] = useState<AssignableUser[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [userRows, setUserRows] = useState<AssignmentWithVisits[]>([]);
+  const [rows, setRows] = useState<AdminAssignmentRow[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [gallery, setGallery] = useState<{ path: string; url: string }[] | null>(null);
 
   const todayKey = toDateKey(new Date());
 
-  const load = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) setRefreshing(true);
-      try {
-        if (mode === 'date') {
-          setDateRows(await listAdminAssignmentsForDate(dateKey));
-        } else if (selectedUserId) {
-          setUserRows(await listAdminAssignmentsForUser(selectedUserId));
-        }
-      } catch (e) {
-        toast('error', 'Could not load attendance', errMsg(e, 'Please try again.'));
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [mode, dateKey, selectedUserId, toast]
-  );
+  // Keep the range non-inverted without a separate validation error — picking
+  // a "from" after the current "to" (or vice versa) just drags the other end.
+  function onFromChange(v: string) {
+    setFromDate(v);
+    if (v > toDate) setToDate(v);
+  }
+  function onToChange(v: string) {
+    setToDate(v);
+    if (v < fromDate) setFromDate(v);
+  }
+
+  function applyPreset(preset: '1d' | '1w' | '1m') {
+    const today = new Date();
+    const start = preset === '1d' ? today : preset === '1w' ? subDays(today, 6) : subMonths(today, 1);
+    setFromDate(toDateKey(start));
+    setToDate(toDateKey(today));
+  }
+
+  function resetFilters() {
+    const today = toDateKey(new Date());
+    setFromDate(today);
+    setToDate(today);
+    setUserId('');
+  }
+
+  const load = useCallback(async () => {
+    try {
+      setRows(await listAdminAssignments({ from: fromDate, to: toDate, userId: userId || undefined }));
+    } catch (e) {
+      toast('error', 'Could not load attendance', errMsg(e, 'Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [fromDate, toDate, userId, toast]);
 
   useEffect(() => {
     setLoading(true);
@@ -136,58 +164,18 @@ export default function AttendancePage() {
     }
   }
 
-  const dateStats = useMemo(() => {
-    const totalAreas = dateRows.length;
-    const visited = dateRows.filter((r) => r.visits.length > 0).length;
-    return {
-      totalAreas,
-      visited,
-      totalVisits: dateRows.reduce((sum, r) => sum + r.visits.length, 0),
-      totalPhotos: dateRows.reduce((sum, r) => sum + photoCount(r), 0),
-      isPast: dateKey < todayKey,
-    };
-  }, [dateRows, dateKey, todayKey]);
-
-  const userStats = useMemo(
-    () => ({
-      totalDays: userRows.length,
-      daysVisited: userRows.filter((r) => r.visits.length > 0).length,
-      totalVisits: userRows.reduce((sum, r) => sum + r.visits.length, 0),
-      totalPhotos: userRows.reduce((sum, r) => sum + photoCount(r), 0),
-    }),
-    [userRows]
-  );
-
-  const stats =
-    mode === 'date'
-      ? [
-          { icon: Map, value: dateStats.totalAreas, label: 'Areas assigned' },
-          {
-            icon: CheckCircle2,
-            value: dateStats.visited,
-            label: `Visited of ${dateStats.totalAreas}`,
-          },
-          { icon: MapPin, value: dateStats.totalVisits, label: 'Visits logged' },
-          {
-            icon: dateStats.isPast ? XCircle : Clock,
-            value: dateStats.totalAreas - dateStats.visited,
-            label: dateStats.isPast ? 'No-shows' : 'Pending',
-          },
-          { icon: ImageIcon, value: dateStats.totalPhotos, label: 'Photos captured' },
-        ]
-      : [
-          { icon: CalendarDays, value: userStats.totalDays, label: 'Days assigned' },
-          {
-            icon: CheckCircle2,
-            value: userStats.daysVisited,
-            label: `Days visited of ${userStats.totalDays}`,
-          },
-          { icon: MapPin, value: userStats.totalVisits, label: 'Visits logged' },
-          { icon: ImageIcon, value: userStats.totalPhotos, label: 'Photos captured' },
-        ];
-
-  const rows: Row[] = mode === 'date' ? dateRows : userRows;
-  const showStats = mode === 'date' || !!selectedUserId;
+  const stats = useMemo(() => {
+    const totalAreas = rows.length;
+    const visited = rows.filter((r) => r.visits.length > 0).length;
+    const totalMinutes = rows.reduce((sum, r) => sum + (visitSpan(r)?.minutes ?? 0), 0);
+    return [
+      { icon: CheckCircle2, value: `${visited}/${totalAreas}`, label: 'Areas visited' },
+      { icon: MapPin, value: rows.reduce((sum, r) => sum + r.visits.length, 0), label: 'Visits logged' },
+      { icon: CalendarX, value: totalAreas - visited, label: 'Not visited' },
+      { icon: ImageIcon, value: rows.reduce((sum, r) => sum + photoCount(r), 0), label: 'Photos captured' },
+      { icon: Clock, value: formatDuration(totalMinutes), label: 'Total hours' },
+    ];
+  }, [rows]);
 
   return (
     <>
@@ -196,41 +184,46 @@ export default function AttendancePage() {
         subtitle="Every assigned area, whether it was visited, and the evidence behind it."
         actions={
           <>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-muted">From</span>
+              <DatePicker value={fromDate} onChange={onFromChange} ariaLabel="From date" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-muted">To</span>
+              <DatePicker value={toDate} onChange={onToChange} ariaLabel="To date" />
+            </div>
             <div className="flex rounded-xl border border-line bg-surface p-1">
-              {(['date', 'user'] as const).map((m) => (
+              {(['1d', '1w', '1m'] as const).map((preset) => (
                 <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition ${
-                    mode === m ? 'bg-copper text-white' : 'text-ink-soft hover:text-ink'
-                  }`}
+                  key={preset}
+                  onClick={() => applyPreset(preset)}
+                  className="rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-ink-soft transition hover:bg-line-soft hover:text-ink"
                 >
-                  By {m === 'date' ? 'date' : 'user'}
+                  {preset.toUpperCase()}
                 </button>
               ))}
             </div>
-            {mode === 'date' ? (
-              <DatePicker value={dateKey} onChange={setDateKey} ariaLabel="Attendance date" />
-            ) : (
-              <Select
-                value={selectedUserId}
-                onChange={setSelectedUserId}
-                options={users.map((u) => ({ value: u.id, label: u.display_name || u.email }))}
-                placeholder="Choose a user…"
-                ariaLabel="Choose a user"
-                className="w-56"
-              />
-            )}
-            <button className="btn-ghost" onClick={() => void load(true)} disabled={refreshing}>
-              <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+            <Select
+              value={userId}
+              onChange={setUserId}
+              options={[
+                { value: '', label: 'All users' },
+                ...users.map((u) => ({ value: u.id, label: u.display_name || u.email })),
+              ]}
+              placeholder="All users"
+              ariaLabel="Filter by user"
+              className="w-48"
+            />
+            <button className="btn-ghost" onClick={resetFilters}>
+              <RotateCcw className="size-4" />
+              Reset filters
             </button>
           </>
         }
       />
 
       <div className="space-y-5 p-5 sm:p-8">
-        {showStats && !loading ? (
+        {!loading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             {stats.map(({ icon: Icon, value, label }) => (
               <div key={label} className="card p-4">
@@ -244,32 +237,22 @@ export default function AttendancePage() {
 
         {loading ? (
           <CenteredSpinner />
-        ) : mode === 'user' && !selectedUserId ? (
-          <div className="card">
-            <EmptyState
-              icon={CalendarDays}
-              title="Choose a user"
-              body="Pick someone above to see their assignment and visit history."
-            />
-          </div>
         ) : rows.length === 0 ? (
           <div className="card">
             <EmptyState
               icon={CalendarX}
-              title={mode === 'date' ? 'No assignments for this date' : 'No assignments for this user yet'}
+              title={userId ? 'No assignments for this user in this range' : 'No assignments in this range'}
             />
           </div>
         ) : (
           <div className="space-y-3">
             {rows.map((row) => {
-              const isPast = mode === 'date' ? dateKey < todayKey : row.assigned_date < todayKey;
+              const isPast = row.assigned_date < todayKey;
               const isOpen = expanded.has(row.id);
-              const profile = 'profile' in row ? row.profile : null;
-              const heading =
-                mode === 'date'
-                  ? profile?.display_name || profile?.email || 'Unknown user'
-                  : format(new Date(`${row.assigned_date}T00:00:00`), 'EEE, MMM d, yyyy');
+              const heading = row.profile?.display_name || row.profile?.email || 'Unknown user';
+              const dateLabel = format(new Date(`${row.assigned_date}T00:00:00`), 'EEE, MMM d');
               const count = row.visits.length;
+              const span = visitSpan(row);
 
               return (
                 <div key={row.id} className="card overflow-hidden">
@@ -277,10 +260,21 @@ export default function AttendancePage() {
                     onClick={() => toggleExpand(row.id)}
                     className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-line-soft"
                   >
-                    {mode === 'date' ? <Avatar name={heading} /> : null}
+                    <Avatar name={heading} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-ink">{heading}</p>
-                      <p className="truncate text-[13px] text-ink-soft">{row.area_label}</p>
+                      <p className="truncate text-[13px] text-ink-soft">
+                        {row.area_label} · {dateLabel}
+                      </p>
+                      {span ? (
+                        <p className="mt-0.5 truncate text-xs text-muted">
+                          {span.first === span.last
+                            ? `Logged ${format(new Date(span.first), 'h:mm a')}`
+                            : `${format(new Date(span.first), 'h:mm a')} – ${format(new Date(span.last), 'h:mm a')}${
+                                span.durationLabel ? ` · ${span.durationLabel}` : ''
+                              }`}
+                        </p>
+                      ) : null}
                       <div className="mt-1.5 flex items-center gap-1.5">
                         <span
                           className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${

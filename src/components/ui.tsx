@@ -276,7 +276,7 @@ export function Select<T extends string>({
       {open ? (
         <ul
           role="listbox"
-          className="absolute z-30 mt-1.5 max-h-64 w-full min-w-max overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-xl shadow-ink/10"
+          className="absolute z-50 mt-1.5 max-h-64 w-full min-w-max overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-xl shadow-ink/10"
         >
           {options.length === 0 ? (
             <li className="px-3 py-2 text-[13px] text-muted">No options</li>
@@ -359,7 +359,7 @@ export function DatePicker({
         {format(selectedDate, 'EEE, MMM d, yyyy')}
       </button>
       {open ? (
-        <div className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-line bg-surface p-3 shadow-xl shadow-ink/10">
+        <div className="absolute left-0 z-50 mt-1.5 w-72 rounded-xl border border-line bg-surface p-3 shadow-xl shadow-ink/10">
           <div className="flex items-center justify-between pb-2">
             <button
               type="button"

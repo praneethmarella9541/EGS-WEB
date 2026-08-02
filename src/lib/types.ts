@@ -69,11 +69,6 @@ export interface LocationVisit {
   photos: VisitPhoto[];
 }
 
-/** Assignment joined with its visits so far — used on the user task screen. */
-export interface AssignmentWithVisits extends Assignment {
-  visits: LocationVisit[];
-}
-
 /** Assignment joined with visits + the assignee's profile — admin Attendance tab. */
 export interface AdminAssignmentRow extends Assignment {
   visits: LocationVisit[];
