@@ -121,7 +121,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-[2px] sm:p-8"
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-[2px] sm:p-8"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -130,7 +130,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`card my-auto w-full ${width} shadow-2xl shadow-ink/20`}
+        className={`card w-full ${width} shadow-2xl shadow-ink/20`}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-lg font-bold text-ink">{title}</h2>

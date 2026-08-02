@@ -166,17 +166,6 @@ export default function FormEditorPage() {
           <h1 className="min-w-0 flex-1 truncate text-lg font-bold text-ink">
             {editor.title?.trim() || 'Untitled form'}
           </h1>
-          {responderUri ? (
-            <a
-              href={responderUri}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-ghost hidden sm:inline-flex"
-            >
-              <ExternalLink className="size-4" />
-              Open
-            </a>
-          ) : null}
           <button className="btn-primary" onClick={() => void save()} disabled={saving}>
             {saving ? <Spinner className="size-4 text-white" /> : 'Save'}
           </button>

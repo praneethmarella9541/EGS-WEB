@@ -54,7 +54,7 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
         <button onClick={() => setNavOpen(true)} aria-label="Open menu" className="text-ink">
           <Menu className="size-5" />
         </button>
-        <span className="text-sm font-bold text-ink">The Nucleus · Admin</span>
+        <span className="text-sm font-bold text-ink">The Nucleus - Marketing · Admin</span>
       </header>
 
       {/* Sidebar */}
@@ -66,7 +66,7 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
         <div className="flex items-center justify-between px-5 py-6">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-copper">
-              The Nucleus
+              The Nucleus - Marketing
             </p>
             <p className="mt-1 text-sm font-semibold text-white">Admin Console</p>
           </div>

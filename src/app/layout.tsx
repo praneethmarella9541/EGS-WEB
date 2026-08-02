@@ -4,7 +4,7 @@ import { AuthProvider } from '@/components/AuthProvider';
 import { ToastProvider } from '@/components/ui';
 
 export const metadata: Metadata = {
-  title: 'The Nucleus — Admin Console',
+  title: 'The Nucleus - Marketing — Admin Console',
   description: 'Manage field team, area assignments, attendance and forms.',
 };
 

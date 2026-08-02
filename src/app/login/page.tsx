@@ -76,7 +76,9 @@ export default function LoginPage() {
       {/* Brand panel */}
       <section className="relative hidden flex-col justify-between bg-ink p-12 text-white lg:flex">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-copper">The Nucleus</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-copper">
+            The Nucleus - Marketing
+          </p>
           <h1 className="mt-3 max-w-md text-4xl font-bold leading-tight">
             Marketing field operations, run from one console.
           </h1>
@@ -96,7 +98,7 @@ export default function LoginPage() {
       <section className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-sm">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-copper lg:hidden">
-            The Nucleus
+            The Nucleus - Marketing
           </p>
           <h2 className="mt-2 text-2xl font-bold text-ink">Admin sign in</h2>
           <p className="mt-1 text-sm text-muted">

@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
-import { callEdge } from './edge';
 import type { AdminAssignmentRow, AssignmentWithVisits, LocationVisit } from './types';
+
+const BUCKET = 'visit-photos';
 
 function sortVisits(visits: LocationVisit[]): LocationVisit[] {
   return [...visits].sort(
@@ -57,16 +58,16 @@ export async function listAdminAssignmentsForUser(
 /**
  * Short-lived signed URLs to view uploaded visit photos. Batched, because a
  * visit usually has several and each one would otherwise be its own round trip.
- * Entries the caller isn't allowed to see come back as null.
+ * Storage RLS (`visit photos storage read own or admin`) lets an admin sign any
+ * path in the bucket, not just their own. Entries that fail to sign (e.g. the
+ * object was deleted) come back as null.
  */
 export async function getPhotoUrls(photoPaths: string[]): Promise<(string | null)[]> {
   const wanted = photoPaths.filter(Boolean);
   if (wanted.length === 0) return photoPaths.map(() => null);
-  const { urls } = await callEdge<{ urls: (string | null)[] }>('gcs-sign', {
-    action: 'read',
-    paths: wanted,
-  });
-  const byPath = new Map(wanted.map((p, i) => [p, urls[i] ?? null]));
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(wanted, 3600);
+  if (error) throw error;
+  const byPath = new Map((data ?? []).map((d) => [d.path, d.error ? null : d.signedUrl]));
   return photoPaths.map((p) => (p ? byPath.get(p) ?? null : null));
 }
 
@@ -82,7 +83,7 @@ export async function downloadPhoto(photoUrl: string, filename: string): Promise
   if (!res.ok) {
     throw new Error(
       res.status === 404
-        ? 'This photo is not in cloud storage. Photos logged before the move to Google Cloud Storage were not carried over.'
+        ? 'This photo could not be found in storage — it may have been deleted.'
         : `Could not fetch the photo (HTTP ${res.status}). Reopen the visit — view links expire after an hour.`
     );
   }
