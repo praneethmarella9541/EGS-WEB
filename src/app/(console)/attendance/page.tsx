@@ -292,21 +292,32 @@ export default function AttendancePage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-ink">{heading}</p>
                       <p className="truncate text-[13px] text-ink-soft">{row.area_label}</p>
-                      <span
-                        className={`mt-1.5 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                          count > 0
-                            ? 'bg-ok/10 text-ok'
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                            count > 0
+                              ? 'bg-ok/10 text-ok'
+                              : isPast
+                                ? 'bg-line-soft text-muted'
+                                : 'bg-warn/10 text-warn'
+                          }`}
+                        >
+                          {count > 0
+                            ? `${count} visit${count === 1 ? '' : 's'}`
                             : isPast
-                              ? 'bg-line-soft text-muted'
-                              : 'bg-warn/10 text-warn'
-                        }`}
-                      >
-                        {count > 0
-                          ? `${count} visit${count === 1 ? '' : 's'}`
-                          : isPast
-                            ? 'No-show'
-                            : 'Pending'}
-                      </span>
+                              ? 'No-show'
+                              : 'Pending'}
+                        </span>
+                        {photoCount(row) > 0 ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-md bg-copper-light px-2 py-0.5 text-[11px] font-bold text-copper"
+                            title={`${photoCount(row)} photo${photoCount(row) === 1 ? '' : 's'} uploaded`}
+                          >
+                            <ImageIcon className="size-3" />
+                            {photoCount(row)}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <ChevronDown
                       className={`size-4.5 shrink-0 text-muted transition-transform ${
