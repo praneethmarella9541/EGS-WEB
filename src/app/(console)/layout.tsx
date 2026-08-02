@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   CalendarCheck,
   FileText,
-  LayoutDashboard,
   LogOut,
   MapPinned,
   Menu,
@@ -17,7 +16,6 @@ import { useAuth } from '@/components/AuthProvider';
 import { Avatar, CenteredSpinner } from '@/components/ui';
 
 const NAV = [
-  { href: '/overview', label: 'Overview', icon: LayoutDashboard },
   { href: '/assignments', label: 'Assignments', icon: MapPinned },
   { href: '/attendance', label: 'Attendance', icon: CalendarCheck },
   { href: '/forms', label: 'Forms', icon: FileText },

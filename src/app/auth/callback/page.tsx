@@ -39,7 +39,7 @@ function CallbackInner() {
       if (!code) {
         // Nothing to exchange — an existing session still counts as signed in.
         const { data } = await supabase.auth.getSession();
-        router.replace(data.session ? '/overview' : '/login');
+        router.replace(data.session ? '/assignments' : '/login');
         return;
       }
 
@@ -47,7 +47,7 @@ function CallbackInner() {
         const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeErr) throw exchangeErr;
         await captureGoogleRefreshToken();
-        router.replace('/overview');
+        router.replace('/assignments');
       } catch (e) {
         setError(errMsg(e, 'Google sign-in did not finish. Please try again.'));
       }

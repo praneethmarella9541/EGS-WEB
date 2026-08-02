@@ -11,12 +11,11 @@ and no data migration. Field staff keep using the mobile app; admins get this.
 |---|---|
 | `/login` | **Google sign-in only.** No password form. |
 | `/auth/callback` | Exchanges the OAuth code, stores the Google refresh token, lands in the console. |
-| `/overview` | Today at a glance: areas assigned/visited/pending, photos, latest visits. |
 | `/assignments` | Pick a date, assign one or many areas per user, optionally override the form per area, remove assignments. Sends the same push notification the mobile app does. |
 | `/attendance` | By date or by user: stats, per-area status (visits / pending / no-show), each visit with its GPS provenance line, map link, and photo lightbox with download. |
 | `/forms` | Google Forms list — create, delete, copy responder link, star the default "field form". |
 | `/forms/[id]` | Full form builder (questions, settings, live preview) plus a responses tab with summaries, verified visit matching, and CSV export. |
-| `/team` | Create field users, reset passwords, delete users and all their data. |
+| `/team` | Create field users, reset passwords, block/unblock sign-in (their data stays intact). |
 
 ## Stack
 

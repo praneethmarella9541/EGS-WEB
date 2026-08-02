@@ -12,7 +12,7 @@ export default function Home() {
 
   useEffect(() => {
     if (loading) return;
-    router.replace(session && isAdmin ? '/overview' : '/login');
+    router.replace(session && isAdmin ? '/assignments' : '/login');
   }, [loading, session, isAdmin, router]);
 
   return <CenteredSpinner />;

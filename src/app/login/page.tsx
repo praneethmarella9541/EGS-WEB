@@ -52,7 +52,7 @@ export default function LoginPage() {
   // straight back out and say why.
   useEffect(() => {
     if (authLoading || !session || !profile) return;
-    if (isAdmin) router.replace('/overview');
+    if (isAdmin) router.replace('/assignments');
     else {
       void supabase.auth.signOut();
       setError('That account is a field user. The admin console is for admins only.');
