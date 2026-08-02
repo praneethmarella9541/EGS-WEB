@@ -126,12 +126,6 @@ export default function LoginPage() {
               <p className="text-[13px] leading-snug text-danger">{error}</p>
             </div>
           ) : null}
-
-          <p className="mt-6 text-xs leading-relaxed text-muted">
-            Signing in also authorises the console to manage your Google Forms and Drive, which is
-            what powers the Forms tab. Field staff don&apos;t sign in here — they use their
-            email and password in the mobile app.
-          </p>
         </div>
       </section>
     </main>
