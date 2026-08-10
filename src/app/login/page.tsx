@@ -95,7 +95,7 @@ export default function LoginPage() {
       </section>
 
       {/* Sign-in panel */}
-      <section className="flex items-center justify-center px-6 py-16">
+      <section className="relative flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-sm">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-copper lg:hidden">
             The Nucleus - Marketing
@@ -127,6 +127,13 @@ export default function LoginPage() {
             </div>
           ) : null}
         </div>
+
+        <a
+          href="/privacy"
+          className="absolute inset-x-0 bottom-8 text-center text-xs font-semibold text-muted underline-offset-2 hover:text-ink hover:underline"
+        >
+          Privacy Policy
+        </a>
       </section>
     </main>
   );
